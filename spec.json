@@ -1,0 +1,20 @@
+{
+  "slug": "workflow-chain-builder",
+  "name": "Workflow Chain Builder",
+  "description": "Build, test and visualize multi-step API request chains with a drag-and-drop flow composer. Pass data between steps, chain HTTP requests, and export results.",
+  "tagline": "Build & test multi-step API chains visually",
+  "price": "9",
+  "category": "developer-tools",
+  "features": [
+    "Visual chain composer",
+    "Multi-step HTTP requests",
+    "JSONPath variable passing",
+    "JavaScript transformations",
+    "Import/export chains",
+    "Response visualization"
+  ],
+  "tech_stack": ["HTML5", "CSS3", "JavaScript"],
+  "status": "ready_for_payment",
+  "created_cycle": 1213,
+  "priority": "high"
+}

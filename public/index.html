@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflow Chain Builder - Multi-Step API Chain Visual Composer</title>
+  <meta name="description" content="Build, test and visualize multi-step API request chains with a drag-and-drop flow composer. Pass data between steps, chain HTTP requests, and export results.">
+  <meta property="og:title" content="Workflow Chain Builder">
+  <meta property="og:description" content="Build, test and visualize multi-step API request chains with a drag-and-drop flow composer.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-2: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --node-request: #3b82f6;
+      --node-response: #10b981;
+      --node-transform: #f59e0b;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+    }
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-actions { display: flex; gap: 10px; }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+    .btn-run { background: var(--success); color: white; padding: 10px 20px; font-size: 14px; }
+    .btn-run:hover { filter: brightness(1.1); }
+    .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    main { flex: 1; display: flex; overflow: hidden; }
+
+    /* LEFT PANEL - Step List */
+    .steps-panel {
+      width: 280px;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-header h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .steps-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .step-item {
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface-2);
+    }
+    .step-item:hover { border-color: var(--accent); }
+    .step-item.active { border-color: var(--accent); background: rgba(99,102,241,0.1); }
+    .step-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .step-number {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-name { font-size: 14px; font-weight: 600; flex: 1; }
+    .step-method {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .method-get { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .method-post { background: rgba(59,130,246,0.15); color: #3b82f6; }
+    .method-put { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .method-delete { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .method-patch { background: rgba(168,85,247,0.15); color: #a855f7; }
+    .step-url { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .step-item-actions { display: flex; gap: 4px; margin-top: 8px; }
+    .step-item-actions button {
+      flex: 1; padding: 5px; border-radius: 6px; border: none;
+      font-size: 11px; font-weight: 600; cursor: pointer; background: var(--surface); color: var(--text-muted);
+    }
+    .step-item-actions button:hover { color: var(--text); }
+    .step-item-actions .delete-step { color: var(--error); }
+    .add-step-btn {
+      margin: 8px;
+      padding: 12px;
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .add-step-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* CENTER - Request Config */
+    .editor-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: var(--bg);
+    }
+    .editor-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .editor-empty svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.3; }
+    .editor-empty h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+    .editor-empty p { font-size: 14px; }
+    .editor-form { max-width: 700px; margin: 0 auto; }
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-row { display: flex; gap: 10px; }
+    .method-select {
+      width: 120px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+    }
+    .method-select:focus { outline: none; border-color: var(--accent); }
+    .url-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .url-input:focus { outline: none; border-color: var(--accent); }
+    .url-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 6px 6px 0 0;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { background: var(--accent); color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .key-value-editor { display: flex; flex-direction: column; gap: 8px; }
+    .kv-row { display: flex; gap: 8px; align-items: center; }
+    .kv-input {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .kv-input:focus { outline: none; border-color: var(--accent); }
+    .kv-input::placeholder { color: var(--text-muted); opacity: 0.5; }
+    .kv-remove {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+    .kv-remove:hover { color: var(--error); border-color: var(--error); }
+    .add-kv-btn {
+      padding: 8px 12px;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      align-self: flex-start;
+    }
+    .add-kv-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .body-editor {
+      width: 100%;
+      min-height: 200px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    .body-editor:focus { outline: none; border-color: var(--accent); }
+
+    .transform-editor { width: 100%; min-height: 100px; }
+    .transform-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
+
+    /* RIGHT - Response */
+    .response-panel {
+      width: 380px;
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+    }
+    .response-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .response-header h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .response-meta { display: flex; gap: 8px; align-items: center; }
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .status-2xx { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .status-4xx { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .status-5xx { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .timing-badge { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    .response-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+    }
+    .response-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 20px;
+    }
+    .response-empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+    .response-empty p { font-size: 13px; }
+    pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--text);
+    }
+    .json-key { color: #a855f7; }
+    .json-string { color: #22c55e; }
+    .json-number { color: #f59e0b; }
+    .json-boolean { color: #3b82f6; }
+    .json-null { color: #94a3b8; }
+
+    /* Flow Visual */
+    .flow-viz {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .flow-viz h3 { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .flow-nodes {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px 0;
+    }
+    .flow-node {
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+      min-width: 80px;
+      text-align: center;
+    }
+    .flow-arrow { color: var(--text-muted); font-size: 16px; }
+
+    /* Loading */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Landing Page Styles */
+    .landing { background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%); }
+    .landing header { background: transparent; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .hero {
+      padding: 100px 20px 80px;
+      text-align: center;
+      background: radial-gradient(ellipse at top, rgba(99,102,241,0.15) 0%, transparent 60%);
+    }
+    .hero-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(99,102,241,0.2);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #818cf8;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .hero h2 {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .hero p { font-size: 1.2rem; color: #94a3b8; max-width: 600px; margin: 0 auto 40px; line-height: 1.7; }
+    .hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .cta-primary {
+      padding: 16px 32px;
+      background: var(--accent);
+      color: white;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      transition: all 0.3s;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+    }
+    .cta-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.5); }
+    .cta-secondary {
+      padding: 16px 32px;
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      transition: all 0.3s;
+    }
+    .cta-secondary:hover { background: var(--surface-2); }
+    .price-tag {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-top: 20px;
+      color: #94a3b8;
+      font-size: 1rem;
+    }
+    .price-tag span { font-size: 2.5rem; font-weight: 700; color: #f1f5f9; }
+
+    .features { padding: 80px 20px; max-width: 900px; margin: 0 auto; }
+    .features h3 { font-size: 2rem; font-weight: 700; text-align: center; margin-bottom: 50px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .feature-card {
+      padding: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.3s;
+    }
+    .feature-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 12px 40px rgba(99,102,241,0.15); }
+    .feature-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: rgba(99,102,241,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 22px;
+    }
+    .feature-card h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { font-size: 0.9rem; color: #94a3b8; line-height: 1.6; }
+
+    .demo-section { padding: 80px 20px; max-width: 1100px; margin: 0 auto; }
+    .demo-section h3 { font-size: 2rem; font-weight: 700; text-align: center; margin-bottom: 20px; }
+    .demo-section p { text-align: center; color: #94a3b8; margin-bottom: 40px; font-size: 1.1rem; }
+    .demo-window {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .demo-toolbar {
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .demo-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .demo-dot.red { background: #ef4444; }
+    .demo-dot.yellow { background: #f59e0b; }
+    .demo-dot.green { background: #22c55e; }
+    .demo-content { padding: 0; }
+
+    .faq { padding: 80px 20px; max-width: 700px; margin: 0 auto; }
+    .faq h3 { font-size: 2rem; font-weight: 700; text-align: center; margin-bottom: 50px; }
+    .faq-item { border-bottom: 1px solid var(--border); padding: 24px 0; }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
+    .faq-a { color: #94a3b8; line-height: 1.7; }
+
+    footer {
+      padding: 40px 20px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    footer a { color: #94a3b8; text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* App view */
+    .app-view { flex: 1; display: flex; overflow: hidden; }
+
+    @media (max-width: 900px) {
+      .steps-panel { width: 220px; }
+      .response-panel { width: 300px; }
+    }
+    @media (max-width: 700px) {
+      .app-view { flex-direction: column; }
+      .steps-panel, .response-panel { width: 100%; height: 200px; }
+      .hero h2 { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body class="landing">
+  <header>
+    <h1>Workflow Chain Builder</h1>
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="showLanding()">← Back</button>
+      <button class="btn btn-primary" onclick="openCheckout()">Buy — $9</button>
+    </div>
+  </header>
+
+  <!-- LANDING PAGE -->
+  <div id="landingPage">
+    <section class="hero">
+      <div class="hero-badge">⚡ Visual API Chain Composer</div>
+      <h2>Build & Test Multi-Step<br>API Chains Visually</h2>
+      <p>Chain HTTP requests together, pass data between steps, transform responses with JavaScript expressions. No code required — just flow.</p>
+      <div class="hero-cta">
+        <button class="cta-primary" onclick="openApp()">Try Free Demo →</button>
+        <div class="price-tag"><span>$9</span> one-time · Lifetime access</div>
+      </div>
+    </section>
+
+    <section class="features">
+      <h3>Everything you need</h3>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔗</div>
+          <h4>Chain Requests</h4>
+          <p>Connect multiple API steps in sequence. Each step can use data from previous responses.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h4>Visual Flow</h4>
+          <p>Drag-and-drop interface to build complex workflows. See your chain at a glance.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h4>Variable Passing</h4>
+          <p>Extract values from responses with JSONPath and inject them into next requests.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h4>Transform & Map</h4>
+          <p>Use JavaScript expressions to reshape data between steps. Full flexibility.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📤</div>
+          <h4>Import / Export</h4>
+          <p>Save your chains as JSON. Share them or reuse across projects.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h4>Privacy First</h4>
+          <p>All processing happens in your browser. No data stored on servers.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <h3>See it in action</h3>
+      <p>Build your first API chain in seconds</p>
+      <div class="demo-window">
+        <div class="demo-toolbar">
+          <div class="demo-dot red"></div><div class="demo-dot yellow"></div><div class="demo-dot green"></div>
+        </div>
+        <div class="demo-content">
+          <div style="padding:0;display:flex;height:400px;">
+            <div style="width:200px;background:#12121a;border-right:1px solid #2a2a3a;padding:12px;overflow-y:auto;">
+              <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;">Chain Steps</div>
+              <div style="padding:10px;border-radius:8px;border:1px solid #6366f1;background:rgba(99,102,241,0.1);margin-bottom:8px;">
+                <div style="font-size:13px;font-weight:600;">1. GET User</div>
+                <div style="font-size:10px;color:#94a3b8;font-family:monospace;">api.example.com/...</div>
+              </div>
+              <div style="padding:10px;border-radius:8px;border:1px solid #2a2a3a;background:#1a1a24;margin-bottom:8px;">
+                <div style="font-size:13px;font-weight:600;">2. POST Order</div>
+                <div style="font-size:10px;color:#94a3b8;font-family:monospace;">api.example.com/...</div>
+              </div>
+              <div style="padding:10px;border-radius:8px;border:1px solid #2a2a3a;background:#1a1a24;margin-bottom:8px;">
+                <div style="font-size:13px;font-weight:600;">3. Email</div>
+                <div style="font-size:10px;color:#94a3b8;font-family:monospace;">webhook.site/...</div>
+              </div>
+            </div>
+            <div style="flex:1;padding:16px;overflow-y:auto;">
+              <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:12px;text-transform:uppercase;">Response: Step 1</div>
+              <pre style="font-size:12px;line-height:1.6;"><span style="color:#a855f7;">{</span>
+  <span style="color:#a855f7;">"user"</span>: <span style="color:#22c55e;">"alice@example.com"</span>,
+  <span style="color:#a855f7;">"id"</span>: <span style="color:#f59e0b;">42</span>,
+  <span style="color:#a855f7;">"plan"</span>: <span style="color:#22c55e;">"pro"</span>
+<span style="color:#a855f7;">}</span></pre>
+              <div style="margin-top:16px;padding:12px;background:#12121a;border-radius:8px;border:1px solid #6366f1;">
+                <div style="font-size:11px;color:#6366f1;margin-bottom:6px;">→ Mapping to Step 2</div>
+                <div style="font-size:12px;font-family:monospace;color:#94a3b8;">user_id: <span style="color:#f59e0b;">$.user.id</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq">
+      <h3>Questions & Answers</h3>
+      <div class="faq-item">
+        <div class="faq-q">What is Workflow Chain Builder?</div>
+        <div class="faq-a">It's a visual tool for chaining multiple API requests together. You define each step, extract data from responses, and pass variables to subsequent requests — all without writing code.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Do I need to code?</div>
+        <div class="faq-a">No! The interface is fully visual. You configure HTTP methods, URLs, headers, body, and transformations using simple forms. For power users, JavaScript expressions are supported for advanced transformations.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Is my data safe?</div>
+        <div class="faq-a">100% private. All request execution happens in your browser. No data is sent to our servers — requests go directly from your browser to the APIs you specify.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How does variable passing work?</div>
+        <div class="faq-a">Each step can extract values from the previous response using JSONPath expressions. These values are stored as chain variables and can be injected into headers, URL parameters, or body of subsequent steps.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I export my chains?</div>
+        <div class="faq-a">Yes! Your complete chain configuration is stored as a portable JSON file. Import it to restore your workflow at any time.</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- APP VIEW -->
+  <div id="appView" style="display:none; flex-direction:column; height:100vh;">
+    <main class="app-view">
+      <!-- Steps Panel -->
+      <div class="steps-panel">
+        <div class="panel-header">
+          <h2>Chain Steps</h2>
+          <button class="btn btn-primary" style="padding:6px 10px;font-size:11px;" onclick="runChain()">▶ Run</button>
+        </div>
+        <div class="steps-list" id="stepsList"></div>
+        <button class="add-step-btn" onclick="addStep()">+ Add Step</button>
+      </div>
+
+      <!-- Editor Panel -->
+      <div class="editor-panel" id="editorPanel">
+        <div class="editor-empty" id="editorEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13,2 13,9 20,9"/></svg>
+          <h3>No step selected</h3>
+          <p>Click a step from the list or add a new one to get started</p>
+        </div>
+        <div class="editor-form" id="editorForm" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">Request URL</label>
+            <div class="form-row">
+              <select class="method-select" id="methodSelect">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+              <input type="text" class="url-input" id="urlInput" placeholder="https://api.example.com/endpoint">
+            </div>
+          </div>
+
+          <div class="flow-viz">
+            <h3>Chain Flow</h3>
+            <div class="flow-nodes" id="flowNodes"></div>
+          </div>
+
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('headers')">Headers</button>
+            <button class="tab" onclick="switchTab('body')">Body</button>
+            <button class="tab" onclick="switchTab('auth')">Auth</button>
+            <button class="tab" onclick="switchTab('transform')">Transform</button>
+          </div>
+
+          <div id="tab-headers" class="tab-content active">
+            <div class="key-value-editor" id="headersEditor">
+              <div class="kv-row">
+                <input class="kv-input" placeholder="Header name" value="Content-Type">
+                <input class="kv-input" placeholder="Value" value="application/json">
+                <button class="kv-remove" onclick="removeKv(this)">×</button>
+              </div>
+            </div>
+            <button class="add-kv-btn" onclick="addKv('headersEditor')">+ Add Header</button>
+          </div>
+
+          <div id="tab-body" class="tab-content">
+            <textarea class="body-editor" id="bodyEditor" placeholder='{"key": "value"}'></textarea>
+          </div>
+
+          <div id="tab-auth" class="tab-content">
+            <div class="form-group">
+              <label class="form-label">Authorization Type</label>
+              <select class="method-select" id="authType" style="width:100%;" onchange="toggleAuthFields()">
+                <option value="none">None</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="basic">Basic Auth</option>
+                <option value="apikey">API Key</option>
+              </select>
+            </div>
+            <div id="auth-fields" style="display:none;"></div>
+          </div>
+
+          <div id="tab-transform" class="tab-content">
+            <textarea class="body-editor transform-editor" id="transformEditor" placeholder="// Extract value from previous step response
+// Access via: chain.variables.prevStepKey
+return chain.variables.userId;"></textarea>
+            <div class="transform-hint">Use JavaScript to transform the response before passing to next step. Return value becomes the step's output.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response Panel -->
+      <div class="response-panel">
+        <div class="response-header">
+          <h2>Response</h2>
+          <div class="response-meta">
+            <span class="timing-badge" id="timingBadge"></span>
+          </div>
+        </div>
+        <div class="response-body">
+          <div class="response-empty" id="responseEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <p>Click "Run" to execute your chain and see responses here</p>
+          </div>
+          <div id="responseContent" style="display:none;"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    <p>© 2026 Workflow Chain Builder · <a href="#">Privacy</a> · <a href="#">Terms</a></p>
+  </footer>
+
+<script>
+let steps = [];
+let activeStep = null;
+let chainVariables = {};
+let isRunning = false;
+
+// Demo steps
+const DEMO_STEPS = [
+  { id: 1, name: 'Fetch User', method: 'GET', url: 'https://jsonplaceholder.typicode.com/users/1', headers: [['Content-Type', 'application/json']], body: '', authType: 'none', transform: '' },
+  { id: 2, name: 'Get Posts', method: 'GET', url: 'https://jsonplaceholder.typicode.com/posts?userId=1', headers: [], body: '', authType: 'none', transform: 'return chain.variables.items ? chain.variables.items[0] : null;' },
+  { id: 3, name: 'Create Post', method: 'POST', url: 'https://jsonplaceholder.typicode.com/posts', headers: [], body: '{"title":"{{last.title}}","body":"Posted via chain","userId":1}', authType: 'none', transform: '' },
+];
+
+function showLanding() {
+  document.getElementById('landingPage').style.display = 'block';
+  document.getElementById('appView').style.display = 'none';
+  document.body.classList.add('landing');
+  document.body.classList.remove('app-view');
+}
+function openApp() {
+  document.getElementById('landingPage').style.display = 'none';
+  document.getElementById('appView').style.display = 'flex';
+  document.body.classList.remove('landing');
+  // Load demo steps
+  steps = JSON.parse(JSON.stringify(DEMO_STEPS));
+  activeStep = steps[0];
+  renderSteps();
+  renderEditor();
+  renderFlowViz();
+}
+function openCheckout() {
+  window.open('https://buy.polar.sh/polar_cl_placeholder', '_blank');
+}
+
+// Steps management
+function renderSteps() {
+  const list = document.getElementById('stepsList');
+  if (!list) return;
+  list.innerHTML = steps.map((s, i) => `
+    <div class="step-item ${activeStep && activeStep.id === s.id ? 'active' : ''}" onclick="selectStep(${i})">
+      <div class="step-item-header">
+        <span class="step-number">${i + 1}</span>
+        <span class="step-name">${s.name || 'Untitled'}</span>
+        <span class="step-method method-${s.method.toLowerCase()}">${s.method}</span>
+      </div>
+      <div class="step-url">${s.url || 'No URL set'}</div>
+      <div class="step-item-actions">
+        <button onclick="event.stopPropagation(); duplicateStep(${i})">Copy</button>
+        <button class="delete-step" onclick="event.stopPropagation(); deleteStep(${i})">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+function selectStep(idx) {
+  activeStep = steps[idx];
+  renderSteps();
+  renderEditor();
+  renderFlowViz();
+}
+function addStep() {
+  const newId = steps.length ? Math.max(...steps.map(s => s.id)) + 1 : 1;
+  steps.push({ id: newId, name: `Step ${newId}`, method: 'GET', url: '', headers: [], body: '', authType: 'none', transform: '' });
+  activeStep = steps[steps.length - 1];
+  renderSteps();
+  renderEditor();
+  renderFlowViz();
+}
+function deleteStep(idx) {
+  steps.splice(idx, 1);
+  if (steps.length === 0) { activeStep = null; }
+  else if (activeStep && steps.findIndex(s => s.id === activeStep.id) === -1) { activeStep = steps[0]; }
+  else { activeStep = steps[idx] || steps[0] || null; }
+  renderSteps();
+  renderEditor();
+  renderFlowViz();
+}
+function duplicateStep(idx) {
+  const copy = JSON.parse(JSON.stringify(steps[idx]));
+  copy.id = steps.length ? Math.max(...steps.map(s => s.id)) + 1 : 1;
+  copy.name = copy.name + ' (copy)';
+  steps.push(copy);
+  activeStep = steps[steps.length - 1];
+  renderSteps();
+  renderEditor();
+  renderFlowViz();
+}
+
+// Editor
+function renderEditor() {
+  const empty = document.getElementById('editorEmpty');
+  const form = document.getElementById('editorForm');
+  if (!activeStep) { empty && (empty.style.display = 'flex'); form && (form.style.display = 'none'); return; }
+  empty && (empty.style.display = 'none'); form && (form.style.display = 'block');
+
+  document.getElementById('methodSelect').value = activeStep.method;
+  document.getElementById('urlInput').value = activeStep.url || '';
+  document.getElementById('bodyEditor').value = activeStep.body || '';
+  document.getElementById('transformEditor').value = activeStep.transform || '';
+
+  // Render headers
+  const headersEditor = document.getElementById('headersEditor');
+  headersEditor.innerHTML = (activeStep.headers || []).map(([k, v]) => `
+    <div class="kv-row">
+      <input class="kv-input" placeholder="Header name" value="${k}">
+      <input class="kv-input" placeholder="Value" value="${v}">
+      <button class="kv-remove" onclick="removeKv(this)">×</button>
+    </div>
+  `).join('');
+}
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+function addKv(containerId) {
+  const container = document.getElementById(containerId);
+  const row = document.createElement('div');
+  row.className = 'kv-row';
+  row.innerHTML = '<input class="kv-input" placeholder="Key"><input class="kv-input" placeholder="Value"><button class="kv-remove" onclick="removeKv(this)">×</button>';
+  container.appendChild(row);
+}
+function removeKv(btn) { btn.parentElement.remove(); }
+
+// Save changes from editor
+function saveFromEditor() {
+  if (!activeStep) return;
+  activeStep.method = document.getElementById('methodSelect').value;
+  activeStep.url = document.getElementById('urlInput').value;
+  activeStep.body = document.getElementById('bodyEditor').value;
+  activeStep.transform = document.getElementById('transformEditor').value;
+
+  // Headers
+  const rows = document.querySelectorAll('#headersEditor .kv-row');
+  activeStep.headers = Array.from(rows).map(r => {
+    const inputs = r.querySelectorAll('input');
+    return [inputs[0].value, inputs[1].value];
+  }).filter(([k]) => k);
+
+  renderSteps();
+  renderFlowViz();
+}
+
+// Flow visualization
+function renderFlowViz() {
+  const container = document.getElementById('flowNodes');
+  if (!container || !steps.length) return;
+  container.innerHTML = steps.map((s, i) => `
+    <div class="flow-node" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#818cf8;">
+      ${s.method}
+    </div>
+    ${i < steps.length - 1 ? '<span class="flow-arrow">→</span>' : ''}
+  `).join('');
+}
+
+// Chain execution
+async function runChain() {
+  if (isRunning || !steps.length) return;
+  saveFromEditor();
+  isRunning = true;
+
+  const runBtn = document.querySelector('.btn-run');
+  if (runBtn) { runBtn.disabled = true; runBtn.innerHTML = '<div class="spinner"></div> Running...'; }
+
+  chainVariables = {};
+  let prevOutput = null;
+  const results = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const startTime = Date.now();
+
+    try {
+      // Build request
+      const headers = {};
+      (step.headers || []).forEach(([k, v]) => { if (k) headers[k] = resolveVars(v, { prev: prevOutput, chain: chainVariables }); });
+
+      // Build body
+      let body = resolveVars(step.body || '', { prev: prevOutput, chain: chainVariables });
+
+      const options = {
+        method: step.method,
+        headers,
+      };
+      if (['POST', 'PUT', 'PATCH'].includes(step.method) && body) {
+        options.body = typeof body === 'string' ? body : JSON.stringify(body);
+      }
+
+      const response = await fetch(resolveVars(step.url, { prev: prevOutput, chain: chainVariables }), options);
+      const elapsed = Date.now() - startTime;
+      const contentType = response.headers.get('content-type') || '';
+      let data;
+
+      try {
+        data = contentType.includes('json') ? await response.json() : await response.text();
+      } catch { data = await response.text(); }
+
+      // Transform
+      if (step.transform) {
+        try {
+          const fn = new Function('chain', step.transform);
+          data = fn({ variables: chainVariables, prev: prevOutput, data, chain: chainVariables });
+        } catch (err) { console.warn('Transform error:', err); }
+      }
+
+      // Store in chain variables
+      const varKey = 'step' + (i + 1);
+      chainVariables[varKey] = data;
+      if (Array.isArray(data)) chainVariables.items = data;
+      else if (typeof data === 'object') Object.assign(chainVariables, data);
+      prevOutput = data;
+
+      results.push({ step, status: response.status, statusText: response.statusText, data, elapsed, ok: response.ok });
+
+      // Update step status visually
+      const stepEl = document.querySelectorAll('.step-item')[i];
+      if (stepEl) stepEl.style.borderColor = response.ok ? '#22c55e' : '#ef4444';
+
+    } catch (err) {
+      results.push({ step, status: 0, statusText: err.message, data: err.message, elapsed: Date.now() - startTime, ok: false });
+    }
+  }
+
+  // Show last response
+  const last = results[results.length - 1];
+  if (last) {
+    const empty = document.getElementById('responseEmpty');
+    const content = document.getElementById('responseContent');
+    if (empty) empty.style.display = 'none';
+    if (content) {
+      content.style.display = 'block';
+      content.innerHTML = `
+        <span class="status-badge ${last.status >= 200 && last.status < 300 ? 'status-2xx' : last.status >= 400 ? 'status-4xx' : 'status-5xx'}">${last.status || 'ERR'} ${last.statusText || ''}</span>
+        <span class="timing-badge">${last.elapsed}ms</span>
+        <pre>${syntaxHighlight(typeof last.data === 'object' ? JSON.stringify(last.data, null, 2) : String(last.data))}</pre>
+      `;
+    }
+  }
+
+  isRunning = false;
+  if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '▶ Run'; }
+}
+
+function resolveVars(str, ctx) {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/\{\{(.+?)\}\}/g, (_, path) => {
+    try {
+      const val = path.trim().split('.').reduce((o, k) => o && o[k], ctx);
+      return val !== undefined ? val : '';
+    } catch { return ''; }
+  });
+}
+
+function syntaxHighlight(json) {
+  if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+    let cls = 'json-number';
+    if (/^"/.test(match)) { cls = /:$/.test(match) ? 'json-key' : 'json-string'; }
+    else if (/true|false/.test(match)) cls = 'json-boolean';
+    else if (/null/.test(match)) cls = 'json-null';
+    return '<span class="' + cls + '">' + match + '</span>';
+  });
+}
+
+// Auth toggle
+function toggleAuthFields() {
+  const type = document.getElementById('authType').value;
+  const fields = document.getElementById('auth-fields');
+  if (!fields) return;
+  if (type === 'none') { fields.style.display = 'none'; return; }
+  fields.style.display = 'block';
+  if (type === 'bearer') {
+    fields.innerHTML = '<input class="kv-input" id="authToken" placeholder="Bearer token" style="width:100%">';
+  } else if (type === 'basic') {
+    fields.innerHTML = '<input class="kv-input" id="authUser" placeholder="Username" style="width:48%;margin-right:4%"><input class="kv-input" id="authPass" placeholder="Password" type="password" style="width:48%">';
+  } else if (type === 'apikey') {
+    fields.innerHTML = '<input class="kv-input" id="authKeyName" placeholder="X-API-Key" style="width:48%;margin-right:4%"><input class="kv-input" id="authKeyValue" placeholder="Your API key" style="width:48%">';
+  }
+}
+
+// Auto-save on input change
+['methodSelect','urlInput','bodyEditor','transformEditor'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', saveFromEditor);
+  if (el) el.addEventListener('blur', saveFromEditor);
+});
+document.getElementById('headersEditor')?.addEventListener('blur', saveFromEditor, true);
+
+// Keyboard shortcut
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); runChain(); }
+});
+</script>
+</body>
+</html>
